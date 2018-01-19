@@ -286,7 +286,7 @@ public:
         swap(first.mapGovernanceObjectsVotedOn, second.mapGovernanceObjectsVotedOn);
     }
 
-    // CALCULATE A RANK AGAINST OF GIVEN BLOCK
+    // CALCULATE A RANK AGAINST OF GIVEN BLOCK 计算主节点的分数
     arith_uint256 CalculateScore(const uint256& blockHash);
 
     bool UpdateFromNewBroadcast(CMasternodeBroadcast& mnb);
@@ -356,8 +356,11 @@ public:
     void UpdateLastPaid(const CBlockIndex *pindex, int nMaxBlocksToScanBack);
 
     // KEEP TRACK OF EACH GOVERNANCE ITEM INCASE THIS NODE GOES OFFLINE, SO WE CAN RECALC THEIR STATUS
+    //跟踪每个治理项目，以防该节点脱机，因此我们可以重新计算它们的状态。
     void AddGovernanceVote(uint256 nGovernanceObjectHash);
+    
     // RECALCULATE CACHED STATUS FLAGS FOR ALL AFFECTED OBJECTS
+    // 重新计算所有受影响对象的缓存状态标志。
     void FlagGovernanceItemsAsDirty();
 
     void RemoveGovernanceObject(uint256 nGovernanceObjectHash);

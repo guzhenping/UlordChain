@@ -15,7 +15,6 @@
 
 #include <boost/lexical_cast.hpp>
 
-
 CMasternode::CMasternode() :
     vin(),
     addr(),
@@ -104,9 +103,22 @@ CMasternode::CMasternode(const CMasternodeBroadcast& mnb) :
     fUnitTest(false)
 {}
 
-//
-// When a new masternode broadcast is sent, update our information
-//
+// When a new masternode broadcast is sent, update our information 
+/*****************************************************************************
+ 函 数 名  : CMasternode.UpdateFromNewBroadcast
+ 功能描述  : 当一个新的主节点广播被发送，更新我们的信息。
+ 输入参数  : CMasternodeBroadcast& mnb  
+ 输出参数  : 无
+ 返 回 值  : bool CMasternode::
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月19日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
+
+*****************************************************************************/
 bool CMasternode::UpdateFromNewBroadcast(CMasternodeBroadcast& mnb)
 {
     if(mnb.sigTime <= sigTime && !mnb.fRecovery) return false;
@@ -122,13 +134,15 @@ bool CMasternode::UpdateFromNewBroadcast(CMasternodeBroadcast& mnb)
     int nDos = 0;
     if(mnb.lastPing == CMasternodePing() || (mnb.lastPing != CMasternodePing() && mnb.lastPing.CheckAndUpdate(this, true, nDos))) {
         lastPing = mnb.lastPing;
+        // Keep track of all pings I've seen
+        //std::map<uint256, CMasternodePing> mapSeenMasternodePing;主节点ping类的hash和主节点被插入到映射里面
         mnodeman.mapSeenMasternodePing.insert(std::make_pair(lastPing.GetHash(), lastPing));
     }
-    // if it matches our Masternode privkey...
+    // if it matches our Masternode privkey... 如果匹配我们主节点已编码的私钥字节 活跃状态的主节点
     if(fMasterNode && pubKeyMasternode == activeMasternode.pubKeyMasternode) {
-        nPoSeBanScore = -MASTERNODE_POSE_BAN_MAX_SCORE;
+        nPoSeBanScore = -MASTERNODE_POSE_BAN_MAX_SCORE;    //活跃的主节点的分数从-5开始
         if(nProtocolVersion == PROTOCOL_VERSION) {
-            // ... and PROTOCOL_VERSION, then we've been remotely activated ...
+            // ... and PROTOCOL_VERSION, then we've been remotely activated ... 被远程激活
             activeMasternode.ManageState();
         } else {
             // ... otherwise we need to reactivate our node, do not add it to the list and do not relay
@@ -145,6 +159,22 @@ bool CMasternode::UpdateFromNewBroadcast(CMasternodeBroadcast& mnb)
 // the proof of work for that block. The further away they are the better, the furthest will win the election
 // and get paid this block
 //
+/*****************************************************************************
+ 函 数 名  : CMasternode.CalculateScore
+ 功能描述  : 确定性地计算一个主节点的给定“分数”,取决于它的散列值与该块的工作证明的距离他们越远，他们越远越好，他们将赢得选举，并得到这个街区的报酬。
+            由交易输入的构造引用前一笔哈希 以及是第几笔交易 越远越好
+ 输入参数  : const uint256& blockHash  
+ 输出参数  : 无
+ 返 回 值  : arith_uint256 CMasternode::
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月18日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
+
+*****************************************************************************/
 arith_uint256 CMasternode::CalculateScore(const uint256& blockHash)
 {
     uint256 aux = ArithToUint256(UintToArith256(vin.prevout.hash) + vin.prevout.n);
@@ -164,15 +194,17 @@ arith_uint256 CMasternode::CalculateScore(const uint256& blockHash)
 void CMasternode::Check(bool fForce)
 {
     LOCK(cs);
-
+    // 是否是关机状态
     if(ShutdownRequested()) return;
 
+    //检查时间要符合在规定的描述内
     if(!fForce && (GetTime() - nTimeLastChecked < MASTERNODE_CHECK_SECONDS)) return;
     nTimeLastChecked = GetTime();
 
+    // 打印到日志中去，主节点交易输出和主节点的状态
     LogPrint("masternode", "CMasternode::Check -- Masternode %s is in %s state\n", vin.prevout.ToStringShort(), GetStateString());
 
-    //once spent, stop doing the checks
+    //once spent, stop doing the checks 一旦花钱就不要检查了
     if(IsOutpointSpent()) return;
 
     int nHeight = 0;
@@ -201,7 +233,7 @@ void CMasternode::Check(bool fForce)
         DecreasePoSeBanScore();
     } else if(nPoSeBanScore >= MASTERNODE_POSE_BAN_MAX_SCORE) {
         nActiveState = MASTERNODE_POSE_BAN;
-        // ban for the whole payment cycle
+        // ban for the whole payment cycle 禁止整个支付周期
         nPoSeBanHeight = nHeight + mnodeman.size();
         LogPrintf("CMasternode::Check -- Masternode %s is banned till block %d now\n", vin.prevout.ToStringShort(), nPoSeBanHeight);
         return;
@@ -210,10 +242,9 @@ void CMasternode::Check(bool fForce)
     int nActiveStatePrev = nActiveState;
     bool fOurMasternode = fMasterNode && activeMasternode.pubKeyMasternode == pubKeyMasternode;
 
-                   // masternode doesn't meet payment protocol requirements ...
-    bool fRequireUpdate = nProtocolVersion < mnpayments.GetMinMasternodePaymentsProto() ||
-                   // or it's our own node and we just updated it to the new protocol but we are still waiting for activation ...
-                   (fOurMasternode && nProtocolVersion < PROTOCOL_VERSION);
+    // masternode doesn't meet payment protocol requirements ... 主节点不满足支付协议的要求...或者它是我们自己的节点，我们刚刚更新到新的协议，但是我们还在等待激活…
+    // or it's our own node and we just updated it to the new protocol but we are still waiting for activation ...
+    bool fRequireUpdate = nProtocolVersion < mnpayments.GetMinMasternodePaymentsProto() || (fOurMasternode && nProtocolVersion < PROTOCOL_VERSION);
 
     if(fRequireUpdate) {
         nActiveState = MASTERNODE_UPDATE_REQUIRED;
@@ -226,7 +257,6 @@ void CMasternode::Check(bool fForce)
     // keep old masternodes on start, give them a chance to receive updates...
     bool fWaitForPing = !masternodeSync.IsMasternodeListSynced() && !IsPingedWithin(MASTERNODE_MIN_MNP_SECONDS);
 
-    //
     // REMOVE AFTER MIGRATION TO 12.1
     //
     // Old nodes don't send pings on dseg, so they could switch to one of the expired states
@@ -238,10 +268,7 @@ void CMasternode::Check(bool fForce)
         if(!masternodeSync.IsMasternodeListSynced()) nTimeStart = GetTime();
         fWaitForPing = GetTime() - nTimeStart < MASTERNODE_MIN_MNP_SECONDS;
     }
-    //
     // END REMOVE
-    //
-
     if(fWaitForPing && !fOurMasternode) {
         // ...but if it was already expired before the initial check - return right away
         if(IsExpired() || IsWatchdogExpired() || IsNewStartRequired()) {
@@ -298,6 +325,21 @@ void CMasternode::Check(bool fForce)
     }
 }
 
+/*****************************************************************************
+ 函 数 名  : CMasternode.IsValidNetAddr
+ 功能描述  : 判断地址是否是有效的
+ 输入参数  : 无
+ 输出参数  : 无
+ 返 回 值  : bool CMasternode::
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月19日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
+
+*****************************************************************************/
 bool CMasternode::IsValidNetAddr()
 {
     return IsValidNetAddr(addr);
@@ -344,6 +386,21 @@ std::string CMasternode::StateToString(int nStateIn)
     }
 }
 
+/*****************************************************************************
+ 函 数 名  : CMasternode.GetStateString
+ 功能描述  : 获取主节点的状态
+ 输入参数  : 无
+ 输出参数  : 无
+ 返 回 值  : std::string CMasternode::
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月19日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
+
+*****************************************************************************/
 std::string CMasternode::GetStateString() const
 {
     return StateToString(nActiveState);
@@ -355,6 +412,21 @@ std::string CMasternode::GetStatus() const
     return GetStateString();
 }
 
+/*****************************************************************************
+ 函 数 名  : CMasternode.GetCollateralAge
+ 功能描述  : 获取抵押的时间，也就是币领
+ 输入参数  : 无
+ 输出参数  : 无
+ 返 回 值  : int CMasternode::
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月19日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
+
+*****************************************************************************/
 int CMasternode::GetCollateralAge()
 {
     int nHeight;
@@ -372,31 +444,47 @@ int CMasternode::GetCollateralAge()
             return nInputAge;
         }
     }
-
     return nHeight - nCacheCollateralBlock;
 }
+/*****************************************************************************
+ 函 数 名  : CMasternode.UpdateLastPaid
+ 功能描述  : 由块索引，扫描更新的最后支付
+ 输入参数  : const CBlockIndex *pindex  
+             int nMaxBlocksToScanBack   
+ 输出参数  : 无
+ 返 回 值  : void CMasternode::
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月19日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
 
+*****************************************************************************/
 void CMasternode::UpdateLastPaid(const CBlockIndex *pindex, int nMaxBlocksToScanBack)
 {
+    // 块索引是否存在
     if(!pindex) return;
 
     const CBlockIndex *BlockReading = pindex;
 
+    // 由抵押的公钥获取地址，并构建脚本
     CScript mnpayee = GetScriptForDestination(pubKeyCollateralAddress.GetID());
     // LogPrint("masternode", "CMasternode::UpdateLastPaidBlock -- searching for block with payment to %s\n", vin.prevout.ToStringShort());
 
     LOCK(cs_mapMasternodeBlocks);
-
+    // 进行对块的遍历扫描.
     for (int i = 0; BlockReading && BlockReading->nHeight > nBlockLastPaid && i < nMaxBlocksToScanBack; i++) {
         if(mnpayments.mapMasternodeBlocks.count(BlockReading->nHeight) &&
             mnpayments.mapMasternodeBlocks[BlockReading->nHeight].HasPayeeWithVotes(mnpayee, 2))
         {
             CBlock block;
-            if(!ReadBlockFromDisk(block, BlockReading, Params().GetConsensus())) // shouldn't really happen
+            if(!ReadBlockFromDisk(block, BlockReading, Params().GetConsensus())) // shouldn't really happen 真的不应该发生的
                 continue;
 
+            // 返回主节点的花费
             CAmount nMasternodePayment = GetMasternodePayment(BlockReading->nHeight, block.vtx[0].GetValueOut());
-
             BOOST_FOREACH(CTxOut txout, block.vtx[0].vout)
                 if(mnpayee == txout.scriptPubKey && nMasternodePayment == txout.nValue) {
                     nBlockLastPaid = BlockReading->nHeight;
@@ -405,7 +493,7 @@ void CMasternode::UpdateLastPaid(const CBlockIndex *pindex, int nMaxBlocksToScan
                     return;
                 }
         }
-
+        // 遍历下一个块索引
         if (BlockReading->pprev == NULL) { assert(BlockReading); break; }
         BlockReading = BlockReading->pprev;
     }
@@ -1018,6 +1106,21 @@ void CMasternodePing::Relay()
     RelayInv(inv);
 }
 
+/*****************************************************************************
+ 函 数 名  : CMasternode.AddGovernanceVote
+ 功能描述  : 添加治理投票
+ 输入参数  : uint256 nGovernanceObjectHash  
+ 输出参数  : 无
+ 返 回 值  : void CMasternode::
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月19日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
+
+*****************************************************************************/
 void CMasternode::AddGovernanceVote(uint256 nGovernanceObjectHash)
 {
     if(mapGovernanceObjectsVotedOn.count(nGovernanceObjectHash)) {
@@ -1026,7 +1129,21 @@ void CMasternode::AddGovernanceVote(uint256 nGovernanceObjectHash)
         mapGovernanceObjectsVotedOn.insert(std::make_pair(nGovernanceObjectHash, 1));
     }
 }
+/*****************************************************************************
+ 函 数 名  : CMasternode.RemoveGovernanceObject
+ 功能描述  : 移除自治管理的项目
+ 输入参数  : uint256 nGovernanceObjectHash  
+ 输出参数  : 无
+ 返 回 值  : void CMasternode::
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月19日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
 
+*****************************************************************************/
 void CMasternode::RemoveGovernanceObject(uint256 nGovernanceObjectHash)
 {
     std::map<uint256, int>::iterator it = mapGovernanceObjectsVotedOn.find(nGovernanceObjectHash);
@@ -1035,7 +1152,21 @@ void CMasternode::RemoveGovernanceObject(uint256 nGovernanceObjectHash)
     }
     mapGovernanceObjectsVotedOn.erase(it);
 }
+/*****************************************************************************
+ 函 数 名  : CMasternode.UpdateWatchdogVoteTime
+ 功能描述  : 更新监督投票的时间
+ 输入参数  : 无
+ 输出参数  : 无
+ 返 回 值  : void CMasternode::
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月19日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
 
+*****************************************************************************/
 void CMasternode::UpdateWatchdogVoteTime()
 {
     LOCK(cs);
@@ -1048,6 +1179,21 @@ void CMasternode::UpdateWatchdogVoteTime()
 *   - When masternode come and go on the network, we must flag the items they voted on to recalc it's cached flags
 *
 */
+/*****************************************************************************
+ 函 数 名  : CMasternode.FlagGovernanceItemsAsDirty
+ 功能描述  : 主节点透过票的标识，脏位标识
+ 输入参数  : 无
+ 输出参数  : 无
+ 返 回 值  : void CMasternode::
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月19日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
+
+*****************************************************************************/
 void CMasternode::FlagGovernanceItemsAsDirty()
 {
     std::vector<uint256> vecDirty;

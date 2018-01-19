@@ -954,7 +954,21 @@ int GetUTXOHeight(const COutPoint& outpoint)
     }
     return coins.nHeight;
 }
+/*****************************************************************************
+ 函 数 名  : GetInputAge
+ 功能描述  : 获取交易输入的币龄
+ 输入参数  : const CTxIn &txin  
+ 输出参数  : 无
+ 返 回 值  : int
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月19日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
 
+*****************************************************************************/
 int GetInputAge(const CTxIn &txin)
 {
     CCoinsView viewDummy;
@@ -1595,20 +1609,42 @@ bool GetAddressUnspent(uint160 addressHash, int type,
 }
 
 /** Return transaction in tx, and if it was found inside a block, its hash is placed in hashBlock */
+/*****************************************************************************
+ 函 数 名  : GetTransaction
+ 功能描述  : 检查交易返回事务，如果在那个块中被发现，返回这个块的哈希值
+                 
+ 输入参数  : const uint256 &hash                       
+             CTransaction &txOut                       
+             const Consensus::Params& consensusParams  
+             uint256 &hashBlock                        
+             bool fAllowSlow                           
+ 输出参数  : 无
+ 返 回 值  : bool
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月18日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
+
+*****************************************************************************/
 bool GetTransaction(const uint256 &hash, CTransaction &txOut, const Consensus::Params& consensusParams, uint256 &hashBlock, bool fAllowSlow)
 {
     CBlockIndex *pindexSlow = NULL;
-
     LOCK(cs_main);
 
+    //在地址池中进行搜寻
     if (mempool.lookup(hash, txOut))
     {
         return true;
     }
-
+    // 读取索引 数据库索引
     if (fTxIndex) {
+        // 用于接受交易位置
         CDiskTxPos postx;
         if (pblocktree->ReadTxIndex(hash, postx)) {
+            //得到之后 把得到的数据还原回去
             CAutoFile file(OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
             if (file.IsNull())
                 return error("%s: OpenBlockFile failed", __func__);
@@ -1626,8 +1662,10 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, const Consensus::P
             return true;
         }
     }
-
-    if (fAllowSlow) { // use coin database to locate block that contains transaction, and scan it
+    
+    // use coin database to locate block that contains transaction, and scan it
+    //使用硬币数据库查找包含事务的块，并扫描它。
+    if (fAllowSlow) { 
         int nHeight = -1;
         {
             CCoinsViewCache &view = *pcoinsTip;
@@ -1651,14 +1689,8 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, const Consensus::P
             }
         }
     }
-
     return false;
 }
-
-
-
-
-
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -1793,13 +1825,28 @@ CAmount GetBlockSubsidy(int nPrevBits, int nPrevHeight, const Consensus::Params&
 
     return fSuperblockPartOnly ? nSuperblockPart : nSubsidy - nSuperblockPart;
 }
+/*****************************************************************************
+ 函 数 名  : GetMasternodePayment
+ 功能描述  : 得到主节点付款
+ 输入参数  : int nHeight         
+             CAmount blockValue  
+ 输出参数  : 无
+ 返 回 值  : CAmount
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月19日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
 
+*****************************************************************************/
 CAmount GetMasternodePayment(int nHeight, CAmount blockValue)
 {
     CAmount ret = blockValue/5; // start at 20%
 
-    int nMNPIBlock = Params().GetConsensus().nMasternodePaymentsIncreaseBlock;
-    int nMNPIPeriod = Params().GetConsensus().nMasternodePaymentsIncreasePeriod;
+    int nMNPIBlock = Params().GetConsensus().nMasternodePaymentsIncreaseBlock;  //支付增长块
+    int nMNPIPeriod = Params().GetConsensus().nMasternodePaymentsIncreasePeriod;//支付增长期
 
                                                                       // mainnet:
     if(nHeight > nMNPIBlock)                  ret += blockValue / 20; // 158000 - 25.0% - 2014-10-24

@@ -23,47 +23,49 @@ extern CMasternodeMan mnodeman;
  *
  * The external interface to this index is provided via delegation by CMasternodeMan
  */
+/*****************************************************************************
+ 函 数 名  : CMasternodeIndex
+ 功能描述  : 主节点的索引类
+ 输入参数  : 无
+ 输出参数  : 无
+ 返 回 值  : class
+ 调用函数  : 
+ 被调函数  : 
+ 
+ 修改历史      :
+  1.日    期   : 2018年1月17日
+    作    者   : zhoukaiyuan
+    修改内容   : 新生成函数
+
+*****************************************************************************/
 class CMasternodeIndex
 {
 public: // Types
     typedef std::map<CTxIn,int> index_m_t;
-
     typedef index_m_t::iterator index_m_it;
-
     typedef index_m_t::const_iterator index_m_cit;
-
     typedef std::map<int,CTxIn> rindex_m_t;
-
     typedef rindex_m_t::iterator rindex_m_it;
-
     typedef rindex_m_t::const_iterator rindex_m_cit;
 
 private:
     int                  nSize;
-
     index_m_t            mapIndex;
-
     rindex_m_t           mapReverseIndex;
-
 public:
     CMasternodeIndex();
 
     int GetSize() const {
         return nSize;
     }
-
     /// Retrieve masternode vin by index
     bool Get(int nIndex, CTxIn& vinMasternode) const;
-
     /// Get index of a masternode vin
     int GetMasternodeIndex(const CTxIn& vinMasternode) const;
-
     void AddMasternodeVIN(const CTxIn& vinMasternode);
-
     void Clear();
 
     ADD_SERIALIZE_METHODS;
-
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
@@ -72,10 +74,8 @@ public:
             RebuildIndex();
         }
     }
-
 private:
     void RebuildIndex();
-
 };
 
 class CMasternodeMan
@@ -92,13 +92,10 @@ private:
 
     /// Only allow 1 index rebuild per hour
     static const int64_t MIN_INDEX_REBUILD_TIME = 3600;
-
     static const std::string SERIALIZATION_VERSION_STRING;
 
     static const int DSEG_UPDATE_SECONDS        = 3 * 60 * 60;
-
     static const int LAST_PAID_SCAN_BLOCKS      = 100;
-
     static const int MIN_POSE_PROTO_VERSION     = 70203;
     static const int MAX_POSE_RANK              = 10;
     static const int MAX_POSE_BLOCKS            = 10;
@@ -165,7 +162,6 @@ public:
 
 
     ADD_SERIALIZE_METHODS;
-
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         LOCK(cs);
@@ -196,7 +192,7 @@ public:
     }
 
     CMasternodeMan();
-
+    
     /// Add an entry
     bool Add(CMasternode &mn);
 

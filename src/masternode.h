@@ -24,18 +24,17 @@ static const int MASTERNODE_NEW_START_REQUIRED_SECONDS  = 180 * 60;
 
 static const int MASTERNODE_POSE_BAN_MAX_SCORE          = 5;
 //
-// The Masternode Ping Class : Contains a different serialize method for sending pings from masternodes throughout the network
+// The Masternode Ping Class : Contains a different serialize method for 
+// sending pings from masternodes throughout the network  Masternode Ping类:包含一个不同的序列化方法，用于从整个网络的主节点发送pings。
 //
-
 class CMasternodePing
 {
 public:
     CTxIn vin;
     uint256 blockHash;
-    int64_t sigTime; //mnb message times
-    std::vector<unsigned char> vchSig;
+    int64_t sigTime;                        // mnb message times 主节点广播消息的时间
+    std::vector<unsigned char> vchSig;      // 签名的信息
     //removed stop
-
     CMasternodePing() :
         vin(),
         blockHash(),
@@ -54,7 +53,23 @@ public:
         READWRITE(sigTime);
         READWRITE(vchSig);
     }
+    
+    /*****************************************************************************
+     函 数 名  : CMasternodePing.swap
+     功能描述  : 两个主节点类之间进行交换
+     输入参数  : CMasternodePing& first   
+                 CMasternodePing& second  
+     输出参数  : 无
+     返 回 值  : void swap
+     调用函数  : 
+     被调函数  : 
+     
+     修改历史      :
+      1.日    期   : 2018年1月17日
+        作    者   : zhoukaiyuan
+        修改内容   : 新生成函数
 
+    *****************************************************************************/
     void swap(CMasternodePing& first, CMasternodePing& second) // nothrow
     {
         // enable ADL (not necessary in our case, but good practice)
@@ -67,7 +82,22 @@ public:
         swap(first.sigTime, second.sigTime);
         swap(first.vchSig, second.vchSig);
     }
+    
+    /*****************************************************************************
+     函 数 名  : CMasternodePing.GetHash
+     功能描述  : 获取的散列值
+     输入参数  : 无
+     输出参数  : 无
+     返 回 值  : uint256 GetH
+     调用函数  : 
+     被调函数  : 
+     
+     修改历史      :
+      1.日    期   : 2018年1月17日
+        作    者   : zhoukaiyuan
+        修改内容   : 新生成函数
 
+    *****************************************************************************/
     uint256 GetHash() const
     {
         CHashWriter ss(SER_GETHASH, PROTOCOL_VERSION);
@@ -75,8 +105,26 @@ public:
         ss << sigTime;
         return ss.GetHash();
     }
+    
+    /*****************************************************************************
+     函 数 名  : CMasternodePing.IsExpired
+     功能描述  : 判断是否是过期
+     输入参数  : 无
+     输出参数  : 无
+     返 回 值  : bool IsEx
+     调用函数  : 
+     被调函数  : 
+     
+     修改历史      :
+      1.日    期   : 2018年1月18日
+        作    者   : zhoukaiyuan
+        修改内容   : 新生成函数
 
-    bool IsExpired() { return GetTime() - sigTime > MASTERNODE_NEW_START_REQUIRED_SECONDS; }
+    *****************************************************************************/
+    bool IsExpired() 
+    { 
+        return GetTime() - sigTime > MASTERNODE_NEW_START_REQUIRED_SECONDS; 
+    }
 
     bool Sign(CKey& keyMasternode, CPubKey& pubKeyMasternode);
     bool CheckSignature(CPubKey& pubKeyMasternode, int &nDos);
@@ -138,42 +186,43 @@ struct masternode_info_t
 class CMasternode
 {
 private:
-    // critical section to protect the inner data structures
+    // critical section to protect the inner data structures 保护内部数据结构的关键部分。
     mutable CCriticalSection cs;
 
 public:
     enum state {
-        MASTERNODE_PRE_ENABLED,
-        MASTERNODE_ENABLED,
-        MASTERNODE_EXPIRED,
-        MASTERNODE_OUTPOINT_SPENT,
-        MASTERNODE_UPDATE_REQUIRED,
-        MASTERNODE_WATCHDOG_EXPIRED,
-        MASTERNODE_NEW_START_REQUIRED,
-        MASTERNODE_POSE_BAN
+        MASTERNODE_PRE_ENABLED,   //启用之前
+        MASTERNODE_ENABLED,       //启用
+        MASTERNODE_EXPIRED,       // 过期
+        MASTERNODE_OUTPOINT_SPENT,// 输出点花费
+        MASTERNODE_UPDATE_REQUIRED,//更新请求
+        MASTERNODE_WATCHDOG_EXPIRED,// 监督过期
+        MASTERNODE_NEW_START_REQUIRED,//新的请求状态
+        MASTERNODE_POSE_BAN           // 发送ban
     };
 
-    CTxIn vin;
-    CService addr;
-    CPubKey pubKeyCollateralAddress;
-    CPubKey pubKeyMasternode;
-    CMasternodePing lastPing;
-    std::vector<unsigned char> vchSig;
-    int64_t sigTime; //mnb message time
-    int64_t nLastDsq; //the dsq count from the last dsq broadcast of this node
-    int64_t nTimeLastChecked;
-    int64_t nTimeLastPaid;
-    int64_t nTimeLastWatchdogVote;
-    int nActiveState;
-    int nCacheCollateralBlock;
-    int nBlockLastPaid;
-    int nProtocolVersion;
-    int nPoSeBanScore;
-    int nPoSeBanHeight;
-    bool fAllowMixingTx;
-    bool fUnitTest;
+    CTxIn vin;                              //交易输入
+    CService addr;                          //服务地址
+    CPubKey pubKeyCollateralAddress;        //抵押公钥
+    CPubKey pubKeyMasternode;               //主节点公钥
+    CMasternodePing lastPing;               //主节点ping类的对象
+    std::vector<unsigned char> vchSig;      // 存放签名信息的向量
+    int64_t sigTime; //mnb message time     // 签名的时间
+    int64_t nLastDsq; //the dsq count from the last dsq broadcast of this node 本节点最后一次广播的时间
+    int64_t nTimeLastChecked;//最后一次核查的时间
+    int64_t nTimeLastPaid;   // 上一次预算
+    int64_t nTimeLastWatchdogVote;//监督投票的时间
+    int nActiveState;               //活跃的状态
+    int nCacheCollateralBlock;      // 块抵押缓冲区
+    int nBlockLastPaid;             // 最后支付的块
+    int nProtocolVersion;           // 协议的版本
+    int nPoSeBanScore;              // ban的分数
+    int nPoSeBanHeight;             // ban的高度
+    bool fAllowMixingTx;            // 允许混合的交易
+    bool fUnitTest;                 // 允许单元测试
 
-    // KEEP TRACK OF GOVERNANCE ITEMS EACH MASTERNODE HAS VOTE UPON FOR RECALCULATION
+    // KEEP TRACK OF GOVERNANCE ITEMS EACH MASTERNODE HAS VOTE UPON FOR RECALCULATION 
+    // 保持对每个主节点进行重新计算的治理项目的跟踪。
     std::map<uint256, int> mapGovernanceObjectsVotedOn;
 
     CMasternode();
@@ -237,7 +286,7 @@ public:
         swap(first.mapGovernanceObjectsVotedOn, second.mapGovernanceObjectsVotedOn);
     }
 
-    // CALCULATE A RANK AGAINST OF GIVEN BLOCK
+    // CALCULATE A RANK AGAINST OF GIVEN BLOCK 计算主节点的分数
     arith_uint256 CalculateScore(const uint256& blockHash);
 
     bool UpdateFromNewBroadcast(CMasternodeBroadcast& mnb);
@@ -307,8 +356,11 @@ public:
     void UpdateLastPaid(const CBlockIndex *pindex, int nMaxBlocksToScanBack);
 
     // KEEP TRACK OF EACH GOVERNANCE ITEM INCASE THIS NODE GOES OFFLINE, SO WE CAN RECALC THEIR STATUS
+    //跟踪每个治理项目，以防该节点脱机，因此我们可以重新计算它们的状态。
     void AddGovernanceVote(uint256 nGovernanceObjectHash);
+    
     // RECALCULATE CACHED STATUS FLAGS FOR ALL AFFECTED OBJECTS
+    // 重新计算所有受影响对象的缓存状态标志。
     void FlagGovernanceItemsAsDirty();
 
     void RemoveGovernanceObject(uint256 nGovernanceObjectHash);
